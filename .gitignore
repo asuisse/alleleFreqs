@@ -1,0 +1,9 @@
+.Rproj.user/
+data/
+old/
+plots/
+temp/
+.RData
+.R*
+*.txt
+*.vcf
