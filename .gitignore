@@ -7,3 +7,4 @@ temp/
 .R*
 *.txt
 *.vcf
+*.bed
