@@ -26,6 +26,7 @@ def find_normal(options):
     else:
         print("Cant find corresponding normal sample for %s" % sample)
 
+
 def parse_freebayes(options):
 
     tumour, normal = find_normal(options)
@@ -69,18 +70,14 @@ def parse_freebayes(options):
 
             difference = abs(t_freq - n_freq)
 
-            if difference > 20:
-                print("LOH", record.INFO, record.genotype(tumour))
-
-
-
-    # print("hello")
-
+            # if difference > 20:
+            #     print("LOH", record.INFO, record.genotype(tumour))
 
 
 def parse_varscan(options):
 
     sample = ntpath.basename(options.varscan_file).split(".")[0]
+
     bed_file = sample + '_LOH_regions.bed'
 
     df = pd.read_csv(options.varscan_file, delimiter="\t")
@@ -93,6 +90,14 @@ def parse_varscan(options):
     loh_count = defaultdict(int)
     last_informative_snp =  defaultdict(lambda: defaultdict(int))
 
+    min_count = 10
+    min_size = 30000
+    if(options.lenient):
+        print("--lenient set to False. Will look for smaller LOH regions")
+        bed_file = sample + '_LOH_regions_lenient.bed'
+        min_count = 4
+        min_size = 10000
+
     for row in df.itertuples(index=True, name='Pandas'):
         chrom, pos, n_freq, t_freq, snv_type, p_val = getattr(row, "chrom"), getattr(row, "position"), getattr(row, "normal_var_freq"), getattr(row, "tumor_var_freq"), getattr(row, "somatic_status"), float(getattr(row, "somatic_p_value"))
 
@@ -102,7 +107,6 @@ def parse_varscan(options):
         n_freq = float(n_freq.rstrip("%"))
         t_freq += 0.001
         n_freq += 0.001
-
 
         if snv_type == 'LOH':
             start_chain = True
@@ -122,6 +126,7 @@ def parse_varscan(options):
         else:
             chain = False
             start = False
+            # This ^ is wrong
 
         if chrom not in loh:
             start = pos
@@ -137,7 +142,6 @@ def parse_varscan(options):
         elif start_chain:
             start = pos
 
-
     loh_run = defaultdict(lambda: defaultdict(dict))
 
     with open(bed_file, 'w') as bed_out:
@@ -146,28 +150,30 @@ def parse_varscan(options):
                 start = int(p)
                 end = int(max(loh[c][p]))
                 if p in loh_count:
-                    if loh_count[p] >= 10 or loh_count[p] >= 5 and (end - start > 30000):
+                    if loh_count[p] >= min_count or loh_count[p] >= (min_count/2) and (end - start > min_size):
+                    # if loh_count[p] >= 10 or loh_count[p] >= 5 and (end - start > 30000):
+
                         loh_run[c][p] = loh[c][p]
                         bed_out.write('%s\t%s\t%s\n' %(c, p, end))
 
-    # print(json.dumps(last_informative_snp['2L'], indent=4, sort_keys=True))
+    # print(json.dumps(last_informative_snp[options.chromosome], indent=4, sort_keys=True))
 
-    max_start = max(loh_run['2L'])
-    max_end   = max(loh_run['2L'][max_start])
+    if(loh_run[options.chromosome]):
+        max_start = max(loh_run[options.chromosome])
+        max_end   = max(loh_run[options.chromosome][max_start])
 
-    print("Last LOH snp on 2L: %s" % last_informative_snp['2L'])
+        print("Last LOH snp on 2L: %s" % last_informative_snp[options.chromosome])
 
-    breakpoint_window_start = last_informative_snp['2L']
-    breakpoint_window_end   = max_end + options.window
+        breakpoint_window_start = last_informative_snp[options.chromosome]
+        breakpoint_window_end   = max_end + options.window
 
+        print("Breakpoint window on %s (+/- %s): 2L:%s-%s" % (options.chromosome, options.window, breakpoint_window_start, breakpoint_window_end))
 
-    print("Breakpoint window on 2L (+/- %s): 2L:%s-%s" % (options.window, breakpoint_window_start, breakpoint_window_end))
-
-    if options.write_breakpoint:
-        breakpoint = sample + '_breakpoint_region.bed'
-        print("Writing breakpoint region to %s" % breakpoint)
-        with open(breakpoint, 'w') as breakpoint_out:
-            breakpoint_out.write('%s\t%s\t%s\n' %('2L', breakpoint_window_start, breakpoint_window_end))
+        if options.write_breakpoint:
+            breakpoint = sample + '_breakpoint_region.bed'
+            print("Writing breakpoint region to %s" % breakpoint)
+            with open(breakpoint, 'w') as breakpoint_out:
+                breakpoint_out.write('%s\t%s\t%s\n' %(options.chromosome, breakpoint_window_start, breakpoint_window_end))
 
     # print(json.dumps(loh_run, indent=4, sort_keys=True))
     return True
@@ -179,12 +185,17 @@ def main():
     parser.add_option("-v", "--varscan_file", dest="varscan_file", help="Varscan native file")
     parser.add_option("-f", "--freebayes_file", dest="freebayes_file", help="Freebayes VCF file")
     parser.add_option("-w", dest="window", action="store", help="Print window at breakpoint on 2L")
+    parser.add_option("-c", dest="chromosome", action="store", help="Chromosome to look for LOH on [Default = 2L]")
+    parser.add_option("--lenient", dest="lenient", action="store_true", help="If True will make more, smaller and lower confidence LOH regions calls")
+
+
     parser.add_option("--write_breakpoint", dest="write_breakpoint", action="store_true", help="Write window at breakpoint on 2L as bed file")
 
     parser.add_option("--config", dest="config", action="store", help="mapping for tumour/normal samples")
 
 
     parser.set_defaults(config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.tsv',
+                        chromosome='2L',
                         window=5000)
 
     options, args = parser.parse_args()
