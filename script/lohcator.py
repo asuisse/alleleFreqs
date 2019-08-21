@@ -70,8 +70,8 @@ def parse_freebayes(options):
 
             difference = abs(t_freq - n_freq)
 
-            # if difference > 20:
-            #     print("LOH", record.INFO, record.genotype(tumour))
+            if difference > 20:
+                print("LOH", record.INFO, record.genotype(tumour))
 
 
 def parse_varscan(options):
@@ -186,7 +186,7 @@ def main():
     parser.add_option("-f", "--freebayes_file", dest="freebayes_file", help="Freebayes VCF file")
     parser.add_option("-w", dest="window", action="store", help="Print window at breakpoint on 2L")
     parser.add_option("-c", dest="chromosome", action="store", help="Chromosome to look for LOH on [Default = 2L]")
-    parser.add_option("--lenient", dest="lenient", action="store_true", help="If True will make more, smaller and lower confidence LOH regions calls")
+    parser.add_option("--lenient", dest="lenient", action="store_true", help="Make more, smaller, lower confidence LOH region calls")
 
 
     parser.add_option("--write_breakpoint", dest="write_breakpoint", action="store_true", help="Write window at breakpoint on 2L as bed file")
@@ -212,6 +212,7 @@ def main():
         except IOError as err:
             sys.stderr.write("IOError " + str(err) + "\n")
             return
+
 
 if __name__ == "__main__":
     sys.exit(main())
