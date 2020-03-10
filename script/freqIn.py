@@ -25,6 +25,8 @@ def find_normal(options):
         s[x] = next(it)
 
     if s[sample]:
+        if options.use_normal:
+            return s[sample], sample
         print("Tumour: %s" % sample)
         print("Normal: %s" % s[sample])
         return sample, s[sample]
@@ -38,7 +40,7 @@ def calculate_snp_frequency(options, tumour, normal, chrom, start, end, vcf_read
     mut_types = defaultdict(int)
 
     for record in vcf_reader.fetch(chrom, start, end):
-        if record.genotype(normal)['DP'] > 20 and record.genotype(tumour)['GQ'] > 1:  # Don't filter on TUM DP to keep in DELS
+        if record.genotype(normal)['DP'] and record.genotype(normal)['DP'] > 20 and record.genotype(tumour)['DP'] and record.genotype(tumour)['DP'] > 10 and record.genotype(tumour)['GQ'] and record.genotype(tumour)['GQ'] > 1: # Don't filter on TUM DP to keep in DELS
             if (record.genotype(tumour)['GT'] == '0/0' and record.genotype(normal)['GT'] == '0/0') or (record.genotype(tumour)['GT'] == '1/1' and record.genotype(normal)['GT'] == '1/1'):
                 continue
             if 'snp' not in record.INFO['TYPE'] or len(record.INFO['TYPE']) > 1:
@@ -150,11 +152,22 @@ def extract_vars(options):
     # directory = '/Users/Nick_curie/Desktop/script_test/alleleFreqs/data'
     directory = '/Volumes/perso/Analysis/Analysis/Freebayes/vcf/'
     snps_file = '_'.join([tumour, 'snps_filt.vcf.gz'])
+
+    if options.use_normal:
+        snps_file = '_'.join([normal, 'snps_filt.vcf.gz'])
+
     snps = os.path.join(directory, snps_file)
 
     print("Reading snps from %s" % snps)
 
-    vcf_reader = vcf.Reader(open(snps, 'r'))
+
+
+    # mode = 'r'
+    # if options.vcf_in.endswith('.gz'):
+    #     mode = 'rb'
+    # vcf_reader = vcf.Reader(open(options.vcf_in, mode))
+
+    vcf_reader = vcf.Reader(open(snps, 'rb'))
 
     supporting_records = []
     opposing_records = []
@@ -227,6 +240,7 @@ def get_args():
     parser.add_option("-v", "--variants", dest="variants", action="store", help="svParser format file")
     parser.add_option("--event", dest="event", action="store", help="Inspect one event")
     parser.add_option("--config", dest="config", action="store", help="mapping for tumour/normal samples")
+    parser.add_option("--use-normal", dest="use_normal", action="store_true", help="Look for SNP frequecny in Normal sample")
     parser.add_option("-o", "--out_file", dest="out_file", action="store", help="File to write annotated vars to")
     parser.add_option("--write_vcf", dest="write_vcf", action="store_true", help="VCF file to write supporting snvs to")
     parser.set_defaults(config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.tsv')
