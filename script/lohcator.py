@@ -7,6 +7,7 @@ from collections import defaultdict
 import json
 import vcf
 
+pd.set_option('display.float_format', lambda x: '%.3f' % x)
 
 def find_normal(options):
     sample = ntpath.basename(options.freebayes_file).split("_")[0]
@@ -31,10 +32,14 @@ def parse_freebayes(options):
 
     tumour, normal = find_normal(options)
 
-    vcf_reader = vcf.Reader(open(options.freebayes_file, 'r'))
+    mode = 'r'
+    if options.freebayes_file.endswith('.gz'):
+        mode = 'rb'
 
-    for record in vcf_reader.fetch("2L"):
-        if(record.genotype(tumour)['DP'] > 20 and record.genotype(normal)['DP'] > 20 and record.genotype(tumour)['GQ'] > 1 ):
+    vcf_reader = vcf.Reader(open(options.freebayes_file, mode))
+
+    for record in vcf_reader.fetch(options.chromosome):
+        if(record.genotype(tumour)['DP'] and record.genotype(tumour)['DP'] > 20 and record.genotype(normal)['DP'] and record.genotype(normal)['DP'] > 20 and record.genotype(tumour)['GQ'] > 1 ):
             if (record.genotype(tumour)['GT'] == '0/0' and record.genotype(normal)['GT'] == '0/0') or (record.genotype(tumour)['GT'] == '1/1' and record.genotype(normal)['GT'] == '1/1'):
                 continue
             if 'snp' not in record.INFO['TYPE'] or len(record.INFO['TYPE']) > 1:
@@ -80,7 +85,7 @@ def parse_varscan(options):
 
     bed_file = sample + '_LOH_regions.bed'
 
-    df = pd.read_csv(options.varscan_file, delimiter="\t")
+    df = pd.read_csv(options.varscan_file, delimiter="\t", dtype={"chrom": str, "position": int, "normal_var_freq": str, "tumor_var_freq": str, "somatic_status": str, "somatic_p_value": float})
     df = df.sort_values(['chrom', 'position'])
 
     chroms = ['2L', '2R', '3L', '3R', 'X', 'Y', '4']
@@ -88,10 +93,14 @@ def parse_varscan(options):
     start = False
     start_chain = False
     loh_count = defaultdict(int)
-    last_informative_snp =  defaultdict(lambda: defaultdict(int))
+    last_informative_snp = defaultdict(lambda: defaultdict(int))
 
     min_count = 10
     min_size = 30000
+    upper_threshold = 100 - options.loh_threshold
+    lower_threshold = options.loh_threshold
+
+
     if(options.lenient):
         print("--lenient set to False. Will look for smaller LOH regions")
         bed_file = sample + '_LOH_regions_lenient.bed'
@@ -111,7 +120,7 @@ def parse_varscan(options):
         if snv_type == 'LOH':
             start_chain = True
             chain = True
-        elif snv_type == 'Germline' and t_freq <= 25 or t_freq >= 75:
+        elif snv_type == 'Germline' and t_freq <= lower_threshold or t_freq >= upper_threshold:
             chain = True
             start_chain = False
         elif snv_type == 'Germline' and p_val > 0.5:
@@ -162,12 +171,12 @@ def parse_varscan(options):
         max_start = max(loh_run[options.chromosome])
         max_end   = max(loh_run[options.chromosome][max_start])
 
-        print("Last LOH snp on 2L: %s" % last_informative_snp[options.chromosome])
+        print("Last LOH snp on %s: %s" % (options.chromosome, last_informative_snp[options.chromosome]))
 
         breakpoint_window_start = last_informative_snp[options.chromosome]
         breakpoint_window_end   = max_end + options.window
 
-        print("Breakpoint window on %s (+/- %s): 2L:%s-%s" % (options.chromosome, options.window, breakpoint_window_start, breakpoint_window_end))
+        print("Breakpoint window on %s (+/- %s): %s:%s-%s" % (options.chromosome, options.window, options.chromosome, breakpoint_window_start, breakpoint_window_end))
 
         if options.write_breakpoint:
             breakpoint = sample + '_breakpoint_region.bed'
@@ -187,6 +196,7 @@ def main():
     parser.add_option("-w", dest="window", action="store", help="Print window at breakpoint on 2L")
     parser.add_option("-c", dest="chromosome", action="store", help="Chromosome to look for LOH on [Default = 2L]")
     parser.add_option("--lenient", dest="lenient", action="store_true", help="Make more, smaller, lower confidence LOH region calls")
+    parser.add_option("--loh_threshold", dest="loh_threshold", action="store", type="int", help="Set the threshold at which to call LOH [Default = 25%]")
 
 
     parser.add_option("--write_breakpoint", dest="write_breakpoint", action="store_true", help="Write window at breakpoint on 2L as bed file")
@@ -196,6 +206,7 @@ def main():
 
     parser.set_defaults(config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.tsv',
                         chromosome='2L',
+                        loh_threshold=25,
                         window=5000)
 
     options, args = parser.parse_args()
