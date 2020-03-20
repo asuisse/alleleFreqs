@@ -3,7 +3,7 @@ library(dplyr)
 library(plyr)
 require(data.table)
 
-parseVarscan <- function(file){
+parseVarscan <- function(file, depth = 20){
   cat("Parsing Varscan file", file, '\n')
   snvs <- read.table(file, header = T, stringsAsFactors = F)
 
@@ -18,7 +18,7 @@ parseVarscan <- function(file){
                   t_dist = abs(50-tFreq)
                   ) %>%
     dplyr::filter(!is.na(pos),
-                  ndepth >= 20, tdepth >= 20,
+                  ndepth >= depth, tdepth >= depth,
                   somatic_status %in% c("Germline", "LOH")) %>%
     dplyr::select(chrom, pos, ndepth, nFreq, n_dist, tdepth, tFreq, t_dist) %>%
     droplevels()
@@ -36,8 +36,8 @@ alleleFractionDepth <- function(df=NULL){
 }
 
 
-plotFreq <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, tissue="tumour"){
-  if(is.null(df)) df <- parseVarscan(file=inFile)
+plotFreq <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, tissue="tumour", depth=20){
+  if(is.null(df)) df <- parseVarscan(file=inFile, depth)
   if(is.null(sample)) sample <- strsplit(basename(inFile), "[.]")[[1]][1]
   cat("Plotting genomic snv frequencies\n")
 
