@@ -8,3 +8,6 @@ temp/
 *.txt
 *.vcf
 *.bed
+.Rproj.user
+.idea
+alleleFreqs.Rproj
