@@ -18,6 +18,7 @@ parseVarscan <- function(file, depth = 20){
                   t_dist = abs(50-tFreq)
                   ) %>%
     dplyr::filter(!is.na(pos),
+                  !is.null(ndepth) && !is.null(tdepth),
                   ndepth >= depth, tdepth >= depth,
                   somatic_status %in% c("Germline", "LOH")) %>%
     dplyr::select(chrom, pos, ndepth, nFreq, n_dist, tdepth, tFreq, t_dist) %>%
@@ -36,7 +37,7 @@ alleleFractionDepth <- function(df=NULL){
 }
 
 
-plotFreq <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, tissue="tumour", depth=20){
+plotFreq <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, write=F, tissue="tumour", depth=20){
   if(is.null(df)) df <- parseVarscan(file=inFile, depth)
   if(is.null(sample)) sample <- strsplit(basename(inFile), "[.]")[[1]][1]
   cat("Plotting genomic snv frequencies\n")
@@ -55,7 +56,15 @@ plotFreq <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, tis
   p <- p + facet_wrap(~chrom, ncol = 5, scales = 'free_x')
   p <- p + ggtitle(paste(sample, " - ", tissue))
   p <- p + theme_bw()
-  print(p)
+  
+  if(write){
+    outfile <- paste0(sample, '_vaf.png')
+    cat("Writing file", outfile, "to 'plots/'", "\n")
+    ggsave(paste0("plots/", outfile), width = 10, height = 3)
+  } else {
+    print(p)
+  }
+  
 }
 
 compare_freqs <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL){
@@ -111,6 +120,7 @@ plotDen <- function(df=NULL, inFile='data/D050R01.snps.txt'){
   print(p)
 }
 
+
 plotDist <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, chroms=c('2L', '3L', '2R', '3R', 'X', 4)){
   if(is.null(df)) df <- parseVarscan(file=inFile)
   if(is.null(sample)) sample <- strsplit(basename(inFile), "[.]")[[1]][1]
@@ -136,15 +146,12 @@ plotDist <- function(df=NULL, inFile='data/D050R01.snp.LOH.hc', sample=NULL, chr
 }
 
 
-plotAllFreqs <- function(group='HUM', varScanDir = '/Volumes/perso/Analysis/Analysis/Varscan'){
+plotAllFreqs <- function(group='HUM', write=F, varScanDir = '/Volumes/perso/Analysis/Analysis/Varscan'){
 
   files <- dir(paste(varScanDir, group, 'high_conf/', sep='/'), pattern = ".snp.hc$")
 
   for (f in files){
-    plotFreq(inFile=paste(varScanDir, group, 'high_conf', f, sep='/'))
+    plotFreq(inFile=paste(varScanDir, group, 'high_conf', f, sep='/'), write=write)
   }
 
 }
-
-
-
