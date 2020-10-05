@@ -75,8 +75,8 @@ def parse_freebayes(options):
 
             difference = abs(t_freq - n_freq)
 
-            if difference > 20:
-                print("LOH", record.INFO, record.genotype(tumour))
+            # if difference > 20:
+                # print("LOH", record.INFO, record.genotype(tumour))
 
 
 def parse_varscan(options):
@@ -85,7 +85,7 @@ def parse_varscan(options):
 
     bed_file = sample + '_LOH_regions.bed'
 
-    df = pd.read_csv(options.varscan_file, delimiter="\t", dtype={"chrom": str, "position": int, "normal_var_freq": str, "tumor_var_freq": str, "somatic_status": str, "somatic_p_value": float})
+    df = pd.read_csv(options.varscan_file, delimiter="\t", dtype={"chrom": str, "position": int, "normal_var_freq": str, "tumor_var_freq": str, "somatic_status": str, "somatic_p_value": str})
     df = df.sort_values(['chrom', 'position'])
 
     chroms = ['2L', '2R', '3L', '3R', 'X', 'Y', '4']

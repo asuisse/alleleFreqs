@@ -186,7 +186,6 @@ def extract_vars(options):
 
         if nstring: write_notes(breakpoints, index, nstring)
 
-
         snp_support = do_snps_support(av_freq, length, sites_surveyed)
 
         if snp_support and sites_surveyed/length >= 0.0002 and row['status'] != '' and ratio >= 2:
