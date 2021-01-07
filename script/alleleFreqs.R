@@ -151,7 +151,20 @@ plotAllFreqs <- function(group='HUM', write=F, varScanDir = '/Volumes/perso/Anal
   files <- dir(paste(varScanDir, group, 'high_conf/', sep='/'), pattern = ".snp.hc$")
 
   for (f in files){
-    plotFreq(inFile=paste(varScanDir, group, 'high_conf', f, sep='/'), write=write)
+    tryCatch(
+      expr = { plotFreq(inFile=paste(varScanDir, group, 'high_conf', f, sep='/'), write=write) },
+      error = function(error_message) {
+        cat(paste0("Error:", error_message))
+        return(NA)
+        }
+    )
   }
 
 }
+
+
+
+
+
+
+
