@@ -198,7 +198,6 @@ def main():
     parser.add_option("--lenient", dest="lenient", action="store_true", help="Make more, smaller, lower confidence LOH region calls")
     parser.add_option("--loh_threshold", dest="loh_threshold", action="store", type="int", help="Set the threshold at which to call LOH [Default = 25%]")
 
-
     parser.add_option("--write_breakpoint", dest="write_breakpoint", action="store_true", help="Write window at breakpoint on 2L as bed file")
 
     parser.add_option("--config", dest="config", action="store", help="mapping for tumour/normal samples")
