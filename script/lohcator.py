@@ -193,8 +193,8 @@ def main():
 
     parser.add_option("-v", "--varscan_file", dest="varscan_file", help="Varscan native file")
     parser.add_option("-f", "--freebayes_file", dest="freebayes_file", help="Freebayes VCF file")
-    parser.add_option("-w", dest="window", action="store", help="Print window at breakpoint on 2L")
-    parser.add_option("-c", dest="chromosome", action="store", help="Chromosome to look for LOH on [Default = 2L]")
+    parser.add_option("-w", "--window", dest="window", action="store", help="Print window at breakpoint on 2L")
+    parser.add_option("-c", "--chromosome", dest="chromosome", action="store", help="Chromosome to look for LOH on [Default = 2L]")
     parser.add_option("--lenient", dest="lenient", action="store_true", help="Make more, smaller, lower confidence LOH region calls")
     parser.add_option("--loh_threshold", dest="loh_threshold", action="store", type="int", help="Set the threshold at which to call LOH [Default = 25%]")
 
