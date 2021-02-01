@@ -1,7 +1,7 @@
 library(ggplot2)
 library(dplyr)
 library(plyr)
-require(data.table)
+library(data.table)
 
 parseVarscan <- function(file, depth = 20){
   cat("Parsing Varscan file", file, '\n')
@@ -28,12 +28,6 @@ parseVarscan <- function(file, depth = 20){
   l_snvs$condition <- factor(ifelse(l_snvs$condition == 1, 'normal', 'tumour'))
 
   return(as.data.frame(l_snvs))
-}
-
-
-alleleFractionDepth <- function(df=NULL){
-  if(is.null(df)) df <- getAllFreqs()
-
 }
 
 
@@ -164,7 +158,9 @@ plotAllFreqs <- function(group='HUM', write=F, varScanDir = '/Volumes/perso/Anal
 
 
 
-
+alleleFractionDepth <- function(df=NULL){
+  if(is.null(df)) df <- getAllFreqs()
+}
 
 
 
