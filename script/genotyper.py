@@ -9,8 +9,6 @@ import json
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
 
 
-
-
 def get_sample_names(options):
     sample_names = {}
     names = pd.read_csv(options.config, delimiter="\t", index_col=False, na_filter=False, names=['sample', 'sample_short', 'sample_converted', 'sex', 'assay'])
@@ -23,7 +21,7 @@ def write_vars(snps, options):
     out_file = 'combined_snps.txt'
     print("Writing snps to file %s" % out_file)
 
-    header = '\t'.join(['chrom', 'pos', 'ref', 'alt', 'samples', 'sharedby'])
+    header = '\t'.join(['chrom', 'pos', 'ref', 'alt', 'status', 'samples', 'sharedby'])
 
     with open(out_file, 'w') as snps_out:
         snps_out.write(header + '\n')
