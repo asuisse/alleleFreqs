@@ -21,6 +21,7 @@ types_count %>% ggplot(.) +
   scale_y_continuous("Percent contribution") +
   theme_bw()
 
+
 snps %>% 
   dplyr::filter(status == 'private') %>% 
   dplyr::group_by(samples) %>% 
