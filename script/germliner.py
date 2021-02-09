@@ -17,9 +17,11 @@ def extract_all(options):
 
     for file in os.listdir(dir):
         if file.endswith("_snps_filt.vcf.gz"):
+        # if file.endswith("_mappable.vcf"):
             options.freebayes_file = os.path.join(dir, file)
             print(options.freebayes_file)
-            file_exists = os.path.join(os.getcwd(), ntpath.basename(options.freebayes_file).split("_")[0] + '_germline_snps.txt')
+            # file_exists = os.path.join(os.getcwd(), ntpath.basename(options.freebayes_file).split("_")[0] + '_germline_snps.txt')
+            file_exists = os.path.join(os.getcwd(), ntpath.basename(options.freebayes_file).split("_")[0] + '_snps.txt')
 
             if os.path.isfile(file_exists):
                 print("Skipping sample %s" % ntpath.basename(options.freebayes_file).split("_")[0])
@@ -54,13 +56,13 @@ def find_normal(options):
 
 
 def write_vars(sample, snps, options):
-
     print("Total germline snps: %s" % (len(snps)))
 
     out_file = sample + '_germline_snps.txt'
+    out_file = sample + '_snps.txt'
     print("Writing snps to file %s" % out_file)
 
-    header = '\t'.join(['chrom', 'pos', 'ref', 'alt', 'tumour_vaf', 'tumour_depth', 'normal_vaf', 'normal_depth'])
+    header = '\t'.join(['chrom', 'pos', 'ref', 'alt', 'genotype', 'tumour_vaf', 'tumour_depth', 'normal_vaf', 'normal_depth'])
 
     with open(out_file, 'w') as snps_out:
         snps_out.write(header + '\n')
@@ -70,6 +72,7 @@ def write_vars(sample, snps, options):
             pos = snps[k]['info']['pos']
             alt = snps[k]['info']['alt']
             ref = snps[k]['info']['ref']
+            genotype = snps[k]['info']['genotype']
 
             taf = snps[k]['tumour']['VAF']
             tdp = snps[k]['tumour']['DP']
@@ -77,7 +80,7 @@ def write_vars(sample, snps, options):
             naf = snps[k]['normal']['VAF']
             ndp = snps[k]['normal']['DP']
 
-            l = '\t'.join(map(str, [chrom, pos, ref, alt, taf, tdp, naf, ndp]))
+            l = '\t'.join(map(str, [chrom, pos, ref, alt, genotype, taf, tdp, naf, ndp]))
             snps_out.write(l + '\n')
 
 
@@ -89,14 +92,13 @@ def parse_freebayes(options):
         mode = 'rb'
 
     vcf_reader = vcf.Reader(open(options.freebayes_file, mode))
-    chroms = ['2L', '2R', '3L', '3R', '4', 'X', 'Y']
-    # chroms = 'Y'
 
-    total_snp_count = 0
+    chroms = ['2L', '2R', '3L', '3R', '4', 'X', 'Y']
+
+    genotypes = ['0/1', '1/0', '1/1']
+    # total_snp_count = 0
     snps = defaultdict(lambda: defaultdict(dict))
 
-    # for c in chroms:
-    #     print("Processing chrom: %s" % c)
     for record in vcf_reader:
         if record.CHROM not in chroms:
             continue
@@ -104,11 +106,23 @@ def parse_freebayes(options):
         if record.genotype(tumour)['DP'] and record.genotype(tumour)['DP'] > 20 and record.genotype(normal)['DP'] and record.genotype(normal)['DP'] > 20 and record.genotype(tumour)['GQ'] > 1:
             key = '_'.join(map(str, [record.CHROM, record.POS, str(record.ALT[0])]))
 
-            if record.genotype(tumour)['GT'] != record.genotype(normal)['GT']:
-                # print("Not equal genotyoes: %s vs %s" % (record.genotype(tumour)['GT'], record.genotype(normal)['GT']))
+            if 'snp' not in record.INFO['TYPE'] or len(record.INFO['TYPE']) > 1 or len(record.REF) > 1:
                 continue
 
-            total_snp_count += 1
+            genotype = 'germline'
+
+            if record.genotype(tumour)['GT'] in genotypes and record.genotype(normal)['GT'] == '0/0' and record.genotype(normal)['AO'] == 0:
+                genotype = 'somatic_tumour'
+            elif record.genotype(normal)['GT'] in genotypes and record.genotype(tumour)['GT'] == '0/0' and record.genotype(tumour)['AO'] == 0:
+                genotype = 'somatic_normal'
+
+            # if genotype != 'germline':
+            #     print("Somatic %s :" % genotype)
+            #     print("Tumour [%s] %s:%s %s (supporting reads: %s)" % (tumour, record.CHROM, record.POS, record.genotype(tumour)['GT'], record.genotype(tumour)['AO']))
+            #     print("Normal [%s] %s:%s %s (supporting reads: %s)" % (normal, record.CHROM, record.POS, record.genotype(normal)['GT'], record.genotype(normal)['AO']))
+            #     print("---")
+
+            # total_snp_count += 1
 
             taf = round((record.genotype(tumour)['AO'] / (record.genotype(tumour)['AO'] + record.genotype(tumour)['RO'])),2)
             naf = round((record.genotype(normal)['AO'] / (record.genotype(normal)['AO'] + record.genotype(normal)['RO'])),2)
@@ -117,7 +131,7 @@ def parse_freebayes(options):
 
             t_dict = {'GT': tumour_gt, 'VAF': taf, 'DP': tumour_dp}
             n_dict = {'GT': normal_gt, 'VAF': naf, 'DP': normal_dp}
-            info = {'chrom': record.CHROM, 'pos': record.POS, 'ref': record.REF,'alt': str(record.ALT[0]) }
+            info = {'chrom': record.CHROM, 'pos': record.POS, 'ref': record.REF,'alt': str(record.ALT[0]), 'genotype': genotype}
 
             snps[key] = {
                 'info': info,
@@ -134,15 +148,15 @@ def main():
     parser.add_option("-f", "--freebayes_file", dest="freebayes_file", help="Freebayes VCF file")
     parser.add_option("--config", dest="config", action="store", help="mapping for tumour/normal samples")
 
-    parser.set_defaults(config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.tsv')
+    parser.set_defaults(config='data/samples.tsv')
 
     options, args = parser.parse_args()
 
     if options.freebayes_file is None and options.dir is None:
         parser.print_help()
-        print
+        print()
 
-    if options.dir:
+    elif options.dir:
         extract_all(options)
 
     else:
