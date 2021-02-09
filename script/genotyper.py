@@ -2,6 +2,7 @@ import sys, os
 import fnmatch
 from optparse import OptionParser
 import pandas as pd
+import numpy as np
 import ntpath
 from collections import defaultdict
 import json
@@ -17,11 +18,11 @@ def get_sample_names(options):
     return sample_names
 
 
-def write_vars(snps, options):
-    out_file = 'combined_snps.txt'
+def write_vars(snps, info, options):
+    out_file = 'snps_combined.txt'
     print("Writing snps to file %s" % out_file)
 
-    header = '\t'.join(['chrom', 'pos', 'ref', 'alt', 'status', 'samples', 'sharedby'])
+    header = '\t'.join(['chrom', 'pos', 'ref', 'alt', 'depth', 'genotype', 'samples', 'sharedby'])
 
     with open(out_file, 'w') as snps_out:
         snps_out.write(header + '\n')
@@ -31,11 +32,18 @@ def write_vars(snps, options):
             samples = snps[k]
             sharedby = len(samples)
             samples = ', '.join(samples)
-            status = 'recurrent'
+            genotype = 'germline_recurrent'
+            depth = 'na'
             if sharedby == 1:
-                status = 'private'
+                depth = info[k]['depth']
+                if info[k]['genotype'] == 'germline':
+                    genotype = 'germline_private'
+                else:
+                    genotype = info[k]['genotype']
+            elif info[k]['genotype'] != 'germline':
+                genotype = info[k]['genotype'] + '_recurrent'
 
-            l = '\t'.join(map(str, [chrom, pos, ref, alt, status, samples, sharedby]))
+            l = '\t'.join(map(str, [chrom, pos, ref, alt, depth, genotype, samples, sharedby]))
             snps_out.write(l + '\n')
 
 
@@ -48,26 +56,27 @@ def get_vars(options):
         sample_names = get_sample_names(options)
 
     overlaps = defaultdict(list)
+    info = defaultdict(dict)
 
-    # excluded_samples = ["B241R41-2",  "A373R7", "A512R17", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9", "D197R09", "D197R11", "D197R13", "D197R15", "D265R01", "D265R03", "D265R05", "D265R07", "D265R09", "D265R11", "D265R13"]
+    excluded_samples = ["B241R41-2",  "A373R7", "A512R17"]
 
-    excluded_samples = []
+    # excluded_samples = []
 
     for file in os.listdir(dir):
-        if file.endswith("_germline_snps.txt"):
+        if file.endswith("_snps.txt"):
             sample = ntpath.basename(file).split("_")[0]
             if sample in excluded_samples:
                 print("Skipping sample %s" % sample)
                 continue
 
             file_path = os.path.join(dir, file)
-            overlaps = extract_vars(sample, sample_names, overlaps, file_path)
+            overlaps, info = extract_vars(sample, sample_names, overlaps, info, file_path)
 
-    return overlaps
+    return overlaps, info
     # print(json.dumps(overlaps, indent=4, sort_keys=True))
 
 
-def extract_vars(sample, sample_names, snps, f):
+def extract_vars(sample, sample_names, snps, info, f):
     df = pd.read_csv(f, delimiter="\t", index_col=False, na_filter=False)
 
     print("Old sample name: %s" % sample)
@@ -79,8 +88,10 @@ def extract_vars(sample, sample_names, snps, f):
     for i, row in df.iterrows():
         key = '_'.join(map(str, [row['chrom'], row['pos'], row['ref'], row['alt']]))
         snps[key].append(sample)
+        info[key]['depth'] = np.mean([row['tumour_depth'], row['normal_depth']])
+        info[key]['genotype'] = row['genotype']
 
-    return snps
+    return snps, info
 
 
 def main():
@@ -92,9 +103,9 @@ def main():
 
     options, args = parser.parse_args()
 
-    snps = get_vars(options)
+    snps, info = get_vars(options)
 
-    write_vars(snps, options)
+    write_vars(snps, info, options)
 
 
 if __name__ == "__main__":
